@@ -1,0 +1,22 @@
+{
+  "name": "connect3rdparty",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node tests/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/websocket": "^1.0.10",
+    "ts-node": "^10.9.2"
+  },
+  "dependencies": {
+    "bedrock-protocol": "^3.36.0",
+    "prismarine-auth": "^2.4.2",
+    "websocket": "^1.0.34"
+  }
+}
