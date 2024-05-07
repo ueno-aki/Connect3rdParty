@@ -2,13 +2,15 @@
   "name": "connect3rdparty",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "test": "node  --env-file .env tests/index.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Ueno Aki",
   "license": "ISC",
   "devDependencies": {
     "@types/websocket": "^1.0.10",
