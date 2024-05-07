@@ -52,7 +52,7 @@ export class RealTimeActivity extends EventEmitter {
     };
     setInterval(() => {
       this.updateSession();
-    }, 20000);
+    }, 30000);
   }
 
   async updateSession() {
