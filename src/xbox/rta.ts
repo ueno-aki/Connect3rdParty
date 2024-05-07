@@ -27,18 +27,17 @@ export class RealTimeActivity extends EventEmitter {
       ws.send('[1,1,"https://sessiondirectory.xboxlive.com/connections/"]');
       this.websocketConnected = true;
       this.emit("open");
-      console.log("open");
     };
     ws.onerror = (error: Error) => {
       this.websocketConnected = false;
-      this.emit("error", error);
-      console.log("error");
+      console.log("[RTA:error] error RTA Websocket", this.xbox_client?.xuid, error);
+      console.log("Restarting...");
     };
     ws.onclose = (event: ICloseEvent) => {
       this.websocketConnected = false;
       this.start();
-      this.emit("close", event);
-      console.log("close");
+      console.log("[RTA:close] close RTA Websocket");
+      console.log("Restarting...");
     };
     ws.onmessage = (event: IMessageEvent) => {
       switch (typeof event.data) {
@@ -51,9 +50,12 @@ export class RealTimeActivity extends EventEmitter {
           this.emit("message", event.data);
       }
     };
+    setInterval(() => {
+      this.updateSession();
+    }, 20000);
   }
 
-  updateSession() {
+  async updateSession() {
     this.updateSessionCallback(this);
 
     this.session_request.members = {
@@ -77,22 +79,20 @@ export class RealTimeActivity extends EventEmitter {
       },
     };
 
-    this.xbox_client.session_directory
-      .session(this.session_request, this.service_config_id, this.session_template_name, this.session_name)
-      .then(async (res) => {
-        let data = await res.json();
-        this.emit("SessionResponse", data);
-        if (this.websocketConnected) {
-          this.xbox_client.session_directory
-            .setActivity({
-              scid: this.service_config_id,
-              templateName: this.session_template_name,
-              name: this.session_name,
-            })
-            .then(async (res) => {
-              this.emit("join", await res.text());
-            });
-        }
+    const session_res = await this.xbox_client.session_directory.session(
+      this.session_request,
+      this.service_config_id,
+      this.session_template_name,
+      this.session_name
+    );
+    this.emit("SessionResponse", session_res);
+    if (this.websocketConnected) {
+      const res = await this.xbox_client.session_directory.setActivity({
+        scid: this.service_config_id,
+        templateName: this.session_template_name,
+        name: this.session_name,
       });
+      this.emit("activity", await res.text());
+    }
   }
 }

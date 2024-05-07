@@ -27,17 +27,14 @@ export interface SessionConnection {
 
 export class SessionDirectory {
   static readonly URI: string = "https://sessiondirectory.xboxlive.com";
-  authorizationHeader: string;
-  constructor(xboxLiveClient: XboxClient) {
-    this.authorizationHeader = xboxLiveClient.authorizationHeader;
-  }
+  constructor(public xbox_client: XboxClient) {}
 
   setActivity(sessionReference: MultiplayerSessionReference) {
     return fetch(`${SessionDirectory.URI}/handles`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: this.authorizationHeader,
+        Authorization: this.xbox_client.authorizationHeader,
         "x-xbl-contract-version": "107",
       },
       body: JSON.stringify({
@@ -53,35 +50,10 @@ export class SessionDirectory {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: this.authorizationHeader,
+        Authorization: this.xbox_client.authorizationHeader,
         "x-xbl-contract-version": "107",
       },
       body: JSON.stringify(multiplayerSessionRequest),
     });
-  }
-
-  sessionKeepAlivePacket(serviceConfigId: string, sessionTemplateName: string, sessionName: string) {
-    return fetch(`${SessionDirectory.URI}/serviceconfigs/${serviceConfigId}/sessionTemplates/${sessionTemplateName}/sessions/${sessionName}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: this.authorizationHeader,
-        "x-xbl-contract-version": "107",
-      },
-    });
-  }
-
-  removeMember(serviceConfigId: string, sessionTemplateName: string, sessionName: string, index: number) {
-    return fetch(
-      `${SessionDirectory.URI}/serviceconfigs/${serviceConfigId}/sessionTemplates/${sessionTemplateName}/sessions/${sessionName}/members/${index}`,
-      {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: this.authorizationHeader,
-          "x-xbl-contract-version": "107",
-        },
-      }
-    );
   }
 }

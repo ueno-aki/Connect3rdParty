@@ -3,7 +3,8 @@ import { EventEmitter } from "events";
 import { LiveTokenGen } from "./xbox/LiveTokenGen";
 import { XboxClient } from "./xbox/Client";
 import { RealTimeActivity } from "./xbox/rta";
-import { ICloseEvent, IMessageEvent } from "websocket";
+import { IMessageEvent } from "websocket";
+import { Followers } from "./xbox/Friend";
 
 const ConfigConstants = {
   SERVICE_CONFIG_ID: "4fc10100-5f7a-4470-899b-280835760c07", // The service config ID for Minecraft
@@ -30,6 +31,8 @@ export interface ConnectionOption {
   port: number;
   ms_account: string;
   cache_path: string;
+  auto_friending: boolean;
+  logging: "default" | "debug";
 }
 
 export interface CustomMotdProperties {
@@ -69,6 +72,7 @@ async function getAdvertisement(ip: string, port: number): Promise<ServerMotd | 
 export class ThirdPartyConnection extends EventEmitter {
   port: number;
   ip: string;
+  auto_friending: boolean;
 
   xbox_client?: XboxClient;
 
@@ -86,6 +90,7 @@ export class ThirdPartyConnection extends EventEmitter {
   rta?: RealTimeActivity;
 
   static async create(option: ConnectionOption): Promise<ThirdPartyConnection> {
+    if (option.logging == "default") console.debug = () => {};
     const motd = await getAdvertisement(option.ip, option.port);
     if (!motd) throw new Error("RakTimeout [Error]: Ping timed out");
     return new ThirdPartyConnection(option, motd);
@@ -102,34 +107,18 @@ export class ThirdPartyConnection extends EventEmitter {
     this.MemberCount = playersOnline;
     this.MaxMemberCount = playersMax;
 
-    const { ip, port, ms_account, cache_path } = option;
+    const { ip, port, ms_account, cache_path, auto_friending } = option;
     this.ip = ip;
     this.port = port;
+    this.auto_friending = auto_friending;
     const token_gen = new LiveTokenGen(ms_account, cache_path, { flow: "live", authTitle: LiveTokenGen.CLIENT_ID, deviceType: "Nintendo" });
     token_gen.start_process();
     token_gen.on("FirstTokenGenerated", () => {
       this.xbox_client = new XboxClient(token_gen);
-      this.emit("AccountInitialized");
-    });
-    this.on("AccountInitialized", () => {
+      this.custom_motd = this.createCustomMotdProperties();
       this.checkAchievement();
     });
     this.on("PassedAchievementChecked", () => {
-      this.custom_motd = this.createCustomMotdProperties();
-      setInterval(() => {
-        getAdvertisement(this.ip, this.port).then((ad) => {
-          if (!ad) return;
-          const { motd, levelName, gamemode, protocol, version, playersOnline, playersMax } = ad;
-          this.hostName = motd;
-          this.worldName = levelName;
-          this.worldType = gamemode;
-          this.protocol = protocol;
-          this.version = version;
-          this.MemberCount = playersOnline;
-          this.MaxMemberCount = playersMax;
-        });
-      }, 15000);
-
       if (!this.xbox_client || !this.custom_motd) throw new Error("'this.xbox_client or this.custom_motd' is undefined.");
       this.rta = new RealTimeActivity(
         this.xbox_client,
@@ -151,52 +140,46 @@ export class ThirdPartyConnection extends EventEmitter {
         }
       );
       this.rta.start();
-      this.rta.on("message", (event: IMessageEvent) => {
-        console.log("message", event);
-        const { rta, xbox_client } = this;
-        rta &&
-          xbox_client?.session_directory.sessionKeepAlivePacket(rta.service_config_id, rta.session_template_name, rta.session_name).then((v) => {
-            console.log("sessionKeepAlivePacket", v.status);
-            v.json()
-              .then(console.log)
-              .catch((e) => {});
-          });
-      });
       this.rta.on("open", () => {
-        console.log("Connected to RTA Websocket");
+        console.log("[RTA:open] Connected to RTA Websocket");
       });
-      this.rta.on("close", (event: ICloseEvent) => {
-        console.log(event.code);
-        console.log(event.reason);
-        console.log(event.wasClean);
-        console.log("Restarting...");
+      this.rta.on("SessionResponse", (res: Response) => {
+        console.debug("[RTA:SessionResponse] update session.");
       });
-      this.rta.on("error", (error: Error) => {
-        console.log(error, this.xbox_client?.xuid, "RTA Websocket");
-        console.log("Restarting...");
+      this.rta.on("message", (event: IMessageEvent) => {
+        console.debug("[RTA:message]", event);
       });
-      this.rta.on("SessionResponse", (session) => {
-        console.log("SessionResponse", session);
+      this.rta.on("activity", (res) => {
+        console.debug("[RTA:activity]", res);
       });
-      this.rta.on("join", (res) => {
-        console.log("join", res);
-      });
+
+      setInterval(async () => {
+        if (this.auto_friending) this.auto_friend();
+        const ad = await getAdvertisement(this.ip, this.port);
+        if (!ad) return;
+        const { motd, levelName, gamemode, protocol, version, playersOnline, playersMax } = ad;
+        this.hostName = motd;
+        this.worldName = levelName;
+        this.worldType = gamemode;
+        this.protocol = protocol;
+        this.version = version;
+        this.MemberCount = playersOnline;
+        this.MaxMemberCount = playersMax;
+        this.custom_motd = this.createCustomMotdProperties();
+      }, 15000);
     });
   }
-  checkAchievement() {
-    let { xbox_client } = this;
+  async checkAchievement() {
+    const { xbox_client } = this;
     if (!xbox_client) throw new Error("'this.xbox_client' is undefined.");
-    console.log(`[FriendConnect ${xbox_client.xuid}] Checking for Achievements`);
-    xbox_client.achievements.getAchievements().then((achievements) => {
-      if (achievements.length == 0) {
-        console.log(`[FriendConnect ${xbox_client.xuid}] Passed Achievement Check`);
-        this.emit("PassedAchievementChecked");
-      } else {
-        throw new Error(
-          `This account "${xbox_client.xuid}" has achievements, please use an alt account without achievements to protect your account.`
-        );
-      }
-    });
+    console.log(`[Achievement:xuid(${xbox_client.xuid})] Checking for Achievements`);
+    const achievements = await xbox_client.achievements.getAchievements();
+    if (achievements.length == 0) {
+      console.log(`[Achievement:xuid(${xbox_client.xuid})] Passed Achievement Check`);
+      this.emit("PassedAchievementChecked");
+    } else {
+      throw new Error(`This account "${xbox_client.xuid}" has achievements, please use an alt account without achievements to protect your account.`);
+    }
   }
   createCustomMotdProperties(): CustomMotdProperties {
     if (!this.xbox_client) throw new Error("'this.xbox_client' is undefined.");
@@ -227,5 +210,24 @@ export class ThirdPartyConnection extends EventEmitter {
       levelId: "level",
       TransportLayer: 0,
     };
+  }
+
+  async auto_friend() {
+    if (!this.xbox_client) throw new Error("this.xbox_client is undefined.");
+    let responce = await fetch(`https://peoplehub.xboxlive.com/users/xuid(${this.xbox_client.xuid})/people/followers`, {
+      method: "GET",
+      headers: {
+        Authorization: `XBL3.0 x=${this.xbox_client.userHash};${this.xbox_client.XSTSToken}`,
+        "x-xbl-contract-version": "5",
+      },
+    });
+    let followers = (await responce.json()) as Followers;
+    for (let follower of followers.people) {
+      if (!follower.isFollowingCaller) continue;
+      if (!follower.isFollowedByCaller) {
+        await this.xbox_client.add_friend(follower.xuid);
+        console.log(`[AutoFriend] Add ${follower.displayName} to Friends`);
+      }
+    }
   }
 }

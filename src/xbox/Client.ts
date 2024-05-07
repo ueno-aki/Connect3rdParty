@@ -1,4 +1,5 @@
 import { Achievements } from "./Achievements";
+import { Followers } from "./Friend";
 import { LiveTokenGen } from "./LiveTokenGen";
 import { SessionDirectory } from "./SessionDirectory";
 
@@ -23,5 +24,13 @@ export class XboxClient {
   constructor(public token_gen: LiveTokenGen) {
     this.achievements = new Achievements(this);
     this.session_directory = new SessionDirectory(this);
+  }
+  add_friend(xuid: string) {
+    return fetch(`https://social.xboxlive.com/users/me/people/xuid(${xuid})`, {
+      method: "PUT",
+      headers: {
+        Authorization: this.authorizationHeader,
+      },
+    });
   }
 }

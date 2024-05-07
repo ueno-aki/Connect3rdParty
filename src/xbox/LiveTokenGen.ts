@@ -53,7 +53,7 @@ export class LiveTokenGen extends EventEmitter {
     let expiry = this.live_cache.token.expires_in * 1000;
     expiry += this.live_cache.token.obtainedOn;
     setInterval(() => {
-      // 23hours later...
+      // 23hours later
       if (expiry - Date.now() - 60 * 60 * 1000 < 0) this.access_new_token();
     }, 15 * 60 * 1000);
   }

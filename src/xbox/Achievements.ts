@@ -3,21 +3,16 @@ import { Achievement } from "./RestTypes";
 
 export class Achievements {
   static readonly uri: string = "https://achievements.xboxlive.com";
-  xbox_authorization_header: string;
-  xuid: string;
-  constructor(client: XboxClient) {
-    this.xuid = client.xuid;
-    this.xbox_authorization_header = client.authorizationHeader;
-  }
+  constructor(public xbox_client: XboxClient) {}
   async getAchievements(): Promise<Achievement[]> {
-    const res = await fetch(`${Achievements.uri}/users/xuid(${this.xuid})/achievements`, {
+    const res = await fetch(`${Achievements.uri}/users/xuid(${this.xbox_client.xuid})/achievements`, {
       method: "GET",
       headers: {
-        Authorization: this.xbox_authorization_header,
+        Authorization: this.xbox_client.authorizationHeader,
         "x-xbl-contract-version": "5",
       },
     });
-    let data = await res.json();
+    const data = await res.json();
     return data.achievements;
   }
 }
