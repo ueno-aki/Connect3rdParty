@@ -1,12 +1,15 @@
+require("dotenv").config();
+const { ip, ms_account } = process.env;
+
 //@ts-check
 const { ThirdPartyConnection } = require("../dist/index");
 ThirdPartyConnection.create({
-  cache_path: "./auth",
+  ip,
   port: 19132,
-  ip: "doiserver.net",
-  ms_account: "uenomut384@gmail.com",
+  ms_account,
+  cache_path: "./auth",
   auto_friending: true,
-  logging: "debug",
+  logging: "default",
 }).finally(() => {
   console.log("started");
 });

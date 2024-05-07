@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "bedrock-protocol": "^3.36.0",
+    "dotenv": "^16.4.5",
     "prismarine-auth": "^2.4.2",
     "websocket": "^1.0.34"
   }
