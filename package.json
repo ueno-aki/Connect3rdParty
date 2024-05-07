@@ -1,9 +1,13 @@
 {
   "name": "connect3rdparty",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ueno-aki/Connect3rdParty.git"
+  },
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
@@ -11,7 +15,7 @@
   },
   "keywords": [],
   "author": "Ueno Aki",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@types/websocket": "^1.0.10",
     "ts-node": "^10.9.2"

@@ -1,3 +1,7 @@
 /node_modules
 /src
+/auth
+/.vscode
+/.env
+.prettierrc.json
 tsconfig.json
